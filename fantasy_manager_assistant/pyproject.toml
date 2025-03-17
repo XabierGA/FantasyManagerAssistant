@@ -1,0 +1,21 @@
+[project]
+name = "fantasy-manager-assistant"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "bs4>=0.0.2",
+    "pandas>=2.2.3",
+    "requests>=2.32.3",
+]
+
+[tool.setuptools]
+packages = [
+    "fantasy_manager_assistant",
+    "fantasy_manager_assistant.src",
+    "fantasy_manager_assistant.src.scraper"
+]
+
+[tool.setuptools.package-dir]
+"" = "fantasy_manager_assistant"
