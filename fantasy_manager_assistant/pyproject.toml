@@ -3,11 +3,14 @@ name = "fantasy-manager-assistant"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.12"
 dependencies = [
     "bs4>=0.0.2",
+    "huggingface>=0.0.1",
     "pandas>=2.2.3",
     "requests>=2.32.3",
+    "numpy<2",
+    "transformers>=4.49.0",
 ]
 
 [tool.setuptools]

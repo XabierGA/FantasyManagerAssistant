@@ -1,0 +1,3 @@
+named_entity:
+  model:
+    - "julian-schelb/roberta-ner-multilingual"
