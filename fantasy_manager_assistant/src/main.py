@@ -1,5 +1,5 @@
 from scraper.news_scraper import ScraperRunner, FutbolFantasyScraper, DataStorage
-from entities.ner_models import NERModel
+from entities.ner_models import SentimentdNERModel
 
 
 def run_scraper(fetch_content=True):
@@ -7,7 +7,10 @@ def run_scraper(fetch_content=True):
     storage = DataStorage()
     scraper = ScraperRunner(ff_scraper, storage)
     news_items = scraper.run_single(fetch_content=fetch_content)
-    ner = NERModel("Davlan/bert-base-multilingual-cased-ner-hrl")
+    ner = SentimentdNERModel(
+    model_name="Davlan/bert-base-multilingual-cased-ner-hrl",
+    sentiment_model="tabularisai/multilingual-sentiment-analysis"
+)
     if news_items:
         print(f"\nFound {len(news_items)} news items:")
         for i, item in enumerate(news_items, 1):
@@ -18,7 +21,7 @@ def run_scraper(fetch_content=True):
             print(f"Image: {item.image_url}")
 
             print(f"Content preview: {item.content}...")
-            print("Named entities ", ner.predict([item.title]))
+            print("Named entities ", ner.predict_with_sentiment([item.content.replace("CEO y administrador de FutbolFantasy.com desde 2011. Programador informático y desarrollador de aplicaciones multiplataforma. Redactor jefe, community manager y streamer.","")]))
     else:
         print("No news items found. Check the logs for details.")
 

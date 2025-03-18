@@ -1,7 +1,9 @@
-from transformers import AutoModelForTokenClassification, AutoTokenizer
+from transformers import AutoModelForTokenClassification, AutoTokenizer, pipeline
 import torch
 from typing import List, Dict
+import logging
 
+logger = logging.getLogger(__name__)
 
 class NERModel:
     def __init__(self, model_name: str):
@@ -135,3 +137,103 @@ class NERModel:
             entity["confidence"] = sum(entity["confidence"]) / len(entity["confidence"])
 
         return entities
+
+class EntitySentimentAnalyzer:
+    def __init__(self, sentiment_model: str):
+        """
+        Initialize sentiment analysis model
+        """
+        logger.info(f"Initializing sentiment analyzer with model: {sentiment_model}")
+        try:
+            self.sentiment_analyzer = pipeline(
+                "sentiment-analysis",
+                model=sentiment_model,
+                tokenizer=sentiment_model,
+                framework="pt",
+                device=0 if torch.cuda.is_available() else -1
+            )
+            self.id2label = self.sentiment_analyzer.model.config.id2label
+        except Exception as e:
+            logger.error(f"Failed to initialize sentiment analyzer: {str(e)}")
+            raise
+
+    def analyze_entities(self, text: str, entities: List[Dict], context_window: int = 50) -> List[Dict]:
+        """
+        Add sentiment analysis to entities using context window
+        """
+        try:
+            logger.debug(f"Analyzing sentiment for {len(entities)} entities")
+            enhanced_entities = []
+            
+            for entity in entities:
+                context = self._get_context_window(
+                    text=text,
+                    start=entity['start'],
+                    end=entity['end'],
+                    window=context_window
+                )
+                
+                sentiment = self._analyze_sentiment(context)
+                
+                enhanced_entity = entity.copy()
+                enhanced_entity.update({
+                    'sentiment': sentiment['label'],
+                    'sentiment_score': sentiment['score'],
+                    'context': context
+                })
+                enhanced_entities.append(enhanced_entity)
+            
+            return enhanced_entities
+            
+        except Exception as e:
+            logger.error(f"Entity sentiment analysis failed: {str(e)}")
+            return entities
+
+    def _get_context_window(self, text: str, start: int, end: int, window: int) -> str:
+        """
+        Extract text window around entity
+        """
+        context_start = max(0, start - window)
+        context_end = min(len(text), end + window)
+        return text[context_start:context_end].strip()
+
+    def _analyze_sentiment(self, text: str) -> Dict:
+        """
+        Analyze sentiment for a single text snippet
+        """
+        try:
+            result = self.sentiment_analyzer(text, truncation=True, max_length=512)[0]
+            return {
+                'label': result['label'],
+                'score': result['score']
+            }
+        except Exception as e:
+            logger.warning(f"Sentiment analysis failed for text: {text[:50]}... - {str(e)}")
+            return {'label': 'UNKNOWN', 'score': 0.0}
+
+class SentimentdNERModel(NERModel):
+    def __init__(self, model_name: str, sentiment_model: str = None):
+        super().__init__(model_name)
+        self.sentiment_analyzer = None
+        if sentiment_model:
+            self.sentiment_analyzer = EntitySentimentAnalyzer(sentiment_model)
+
+    def predict_with_sentiment(self, texts: List[str], batch_size: int = 8, 
+                             context_window: int = 100) -> List[List[Dict]]:
+        """
+        Predict entities with sentiment analysis
+        """
+        if not self.sentiment_analyzer:
+            raise ValueError("Sentiment analyzer not initialized")
+
+        entities = self.predict(texts, batch_size)
+        
+        try:
+            logger.info("Adding sentiment analysis to entities")
+            return [
+                self.sentiment_analyzer.analyze_entities(text, ents, context_window)
+                for text, ents in zip(texts, entities)
+            ]
+        except Exception as e:
+            logger.error(f"Failed to add sentiment analysis: {str(e)}")
+            return entities
